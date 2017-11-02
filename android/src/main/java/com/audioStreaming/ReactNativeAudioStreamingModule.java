@@ -17,6 +17,13 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 import javax.annotation.Nullable;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+
 public class ReactNativeAudioStreamingModule extends ReactContextBaseJavaModule
     implements ServiceConnection {
 
@@ -84,11 +91,30 @@ public class ReactNativeAudioStreamingModule extends ReactContextBaseJavaModule
     signal = null;
   }
 
-  @ReactMethod public void play(String streamingURL, ReadableMap options) {
-    this.streamingURL = streamingURL;
+  private String UnwrapUrl(String url, int attempts) throws IOException {
+    HttpURLConnection con = (HttpURLConnection)new URL(url).openConnection();
+    con.connect();
+    int code = con.getResponseCode();
+    System.out.println(url);
+    System.out.println(attempts);
+    if(code == 301 || code == 302){
+      String location = con.getHeaderField("Location");
+      return UnwrapUrl(location, attempts + 1);
+    }
+    if(attempts > 10)
+    {
+      return url;
+    }
+    return url;
+  }
+
+  @ReactMethod public void play(String streamingURL, ReadableMap options) throws IOException {
+    this.streamingURL = UnwrapUrl(streamingURL, 0);
+    System.out.println("!!!");
+    System.out.println(this.streamingURL);
     this.shouldShowNotification =
         options.hasKey(SHOULD_SHOW_NOTIFICATION) && options.getBoolean(SHOULD_SHOW_NOTIFICATION);
-    signal.setURLStreaming(streamingURL); // URL of MP3 or AAC stream
+    signal.setURLStreaming(this.streamingURL); // URL of MP3 or AAC stream
     playInternal();
   }
 
